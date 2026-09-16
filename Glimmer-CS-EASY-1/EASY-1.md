@@ -22,3 +22,5 @@ VScode原生只提供文本编辑功能,依据网上的资料,安装C语言插�
 如此多的插件,使VScode由本质记事本变成编程语言的强大集成开发环境(IDE).
 
 ### 4.launch.json文件的更改与hello world!
+![alt text](外.png)
+![alt text](内.png)
