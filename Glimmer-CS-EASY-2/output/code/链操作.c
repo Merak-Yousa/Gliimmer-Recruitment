@@ -1,6 +1,7 @@
 //在查找观看B站网课后,学习了链表的写法,只是部分记忆不清,使用了自动补全
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 struct Student{
     int data;
     struct Student *next;
@@ -63,3 +64,50 @@ int find(struct Student* head, int n){
     return -1;//not found
 }
 
+//删除节点
+//若是头节点
+bool deletenode(struct Student** head,int n){
+    
+    if (head == NULL || n<=0)
+    return false;
+
+    if (n == 1){
+        struct Student* temp = *head;
+        free(temp);
+        return true;
+    }
+
+struct Student* prev = *head;
+struct Student* curr = *head;
+int index = 1;
+
+while (curr != NULL && index < n){
+    prev = curr;
+    curr = curr->next;
+    index++;
+}
+
+if (curr == NULL)
+return false;
+
+prev->next = curr->next;
+free(curr);
+
+return true;
+}
+
+
+//反转函数
+struct Student* reverse(struct Student* head){
+    struct Student* prev = NULL;
+    struct Student* curr = head;
+    struct Student* ne = NULL;
+
+    while (curr !=NULL){
+        ne = curr->next;
+        curr->next = prev;
+        prev = curr;
+        curr = ne;
+    }
+    return prev;
+}
