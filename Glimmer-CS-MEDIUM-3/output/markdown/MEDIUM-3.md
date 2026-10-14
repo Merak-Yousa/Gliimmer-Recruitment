@@ -89,3 +89,77 @@ void parse_permissions(mode_t mode, char *perms) {
 
 - 1.`.`代表当前目录,`..`代表父目录.
 - 2.在根目录`/`下,`.`和`..`的`inode编号相同,都等于根目录的inode.
+
+### 任务3.2
+
+```c
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <sys/stat.h>
+#include <dirent.h>
+
+ino_t get_inode(const char *path) {
+    struct stat statbuf;
+    if (stat(path, &statbuf) == -1) {
+        perror("stat failed");
+        exit(EXIT_FAILURE);
+    }
+    return statbuf.st_ino;
+}
+
+int main(){
+
+    char names[1000][256];
+    int n = 0;
+
+    while(1){
+        
+        ino_t cur = get_inode(".");
+        chdir("..");
+
+        ino_t par = get_inode(".");
+        if (cur == par) break;
+
+        DIR* dir = opendir(".");
+        struct dirent* entry;
+        
+        while((entry = readdir(dir)) != NULL){
+
+            if (strcmp(entry->d_name , ".") == 0 || strcmp(entry->d_name , "..") == 0)continue;
+
+            if (get_inode(entry->d_name) == cur){
+              strcpy(names[n] , entry->d_name);
+              n++;
+              break;
+            }
+        }
+        closedir(dir);
+    }
+
+    if (n == 0){
+      printf("/\n");}
+
+    else{
+        for(int i = n - 1; i >= 0; i--){
+            printf("/%s",names[i]);
+        }
+    }
+    return 0;
+}
+```
+
+>本题借助AI生成原理与示例并分块学习,以上代码为对照示例模仿写出来的,语法不够熟练,但可以理解算法
+
+- 思考过程:
+  - 要在不使用cwd的情况下求绝对路径,需要回到父目录的对照表查询编号对应的名字,逐行查询,直到查询成功就停止循环;
+  - 查询之前保存自己的编号;
+  - 之后再回到下一个父目录,此时出现了问题:父目录的具体个数不知道,于是设置了while循环,直到`..`指向自己(根目录)就停止,程序判断为爬之后的编号等于爬之前的,引入par;
+  - 查询完毕后想要打印,需要一个起存放作用的数组,由于readdir会复用内存,所以一旦查到名字就strcpy保存在里面;
+  - 但是因为是从里向外查询,数组中的名字是倒序,于是建立for循环,使i = n - 1,每打印一次就-1,这样就可以把names[i]倒序打印;
+  - 如果本来就在根目录,直接打印`/`即可.
+
+## 最终境：算帝—— 递归与文件筛选
+
+### 任务4.1
