@@ -209,4 +209,4 @@ if ((statbuf.st_mode & S_IFMT) == S_IFDIR)
     }
     closedir(dir);
 }
-```c
+```
