@@ -89,4 +89,3 @@ void parse_permissions(mode_t mode, char *perms) {
 
 - 1.`.`代表当前目录,`..`代表父目录.
 - 2.在根目录`/`下,`.`和`..`的`inode编号相同,都等于根目录的inode.
-- 
