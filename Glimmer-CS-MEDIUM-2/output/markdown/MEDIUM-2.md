@@ -104,3 +104,71 @@ int main(void) {
 - 最小的为0 0001 000,十进制为2^(-6)=1/64.
 
 (3) 浮点数中存在最小的步长,为2^(-9).阶码值为1 - Bias时,最小规格化数与最大非规格化数的差正好为2^(-9),相当于数值均匀变化.若使用-Bias,该间隔会变为9*2^(-10),其中存在本应能被表示的实数不能被表示,所以1 - Bias更合理
+
+## 任务4.1
+
+- 一些思考:
+
+  - 对阶的目的,是和科学计数法一样,让尾数能进行加减运算.
+  - 不用大阶向小阶看齐,是由于大阶尾数左移后,左边没有空位,最高位的1会被挤出寄存器,让数值崩溃.降阶时要减少E
+  - 为了输出0和1,用数组代替浮点数进行模拟,需要在开始和结束时将数组的几个部分用位运算写成整数.
+  - siga和sigb需要提前把规格化数自带的1补上,就是将第三位变成1.
+  - 将sig规格化右移时,既将sig转化成四位,由达成了向零舍入.之后将自带的1去掉即可.
+
+```c
+#include<stdio.h>
+
+void sum(const char* a,const char* b, char out[9]){
+    int xa = 0, xb = 0;
+    out [8] = '\0';
+
+    for (int i = 0; a[i] != '\0'; i++)
+        {xa = (xa << 1) | (a[i] - '0') ; }
+    for (int i = 0; b[i] != '\0' ; i++)
+        {xb = (xb << 1) | (b[i] - '0') ; }
+
+    int Ea = (xa >> 3) & 0xF; int Ma = xa & 0x7;
+    int Eb = (xb >> 3) & 0xF; int Mb = xb & 0x7;
+
+    int siga = 8 | Ma; int sigb = 8 | Mb;
+
+    int E;
+    if (Ea >= Eb){
+        sigb = sigb >> (Ea - Eb);
+        E = Ea;
+    }
+    else {
+        siga = siga >> (Eb - Ea);
+        E = Eb;
+    }
+    
+    int sig = siga + sigb;
+    while (sig >= 16){
+        sig >>= 1;
+        E++;
+    }
+
+    int result = (E << 3) | (sig & 0x7);
+
+    for (int i = 7 ; i>= 0 ; i--){
+        out[i] = '0' + ((result >> (7 - i)) & 1); 
+    }
+}
+
+
+int main(void){
+    char a[16],b[16],out[9];
+    
+    while ((scanf("%15s %15s", a, b)) == 2){
+        sum(a, b, out);
+        printf("%s + %s = %s\n", a, b, out);
+    }
+    return 0;
+}
+```
+
+运行结果:
+
+![alt text](<屏幕截图 2026-10-19 172407.png>)
+
+## 任务4.2
