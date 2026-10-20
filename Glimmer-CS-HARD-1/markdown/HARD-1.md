@@ -162,3 +162,263 @@
 
 - 可以排除的原因:网卡网线路由器硬件问题,带宽不足或限速,游戏服务器本身问题,DNS解析错误,ARP风暴.
 - 可能的原因:路由绕行或路由次优,出口拥塞,IPv6路径质量问题等.
+
+## step 2
+
+- 由于笔试即将截止,没有充分时间进行研究学习.通过紧跟教程制作了简洁的版本,在windows系统上实现了客户端和服务器的单线程通信(使用的函数都在文档中有记载):
+
+![alt text](<屏幕截图 2026-10-20 204410.png>)
+
+- 以下为客户端代码:
+
+```c
+#include<stdio.h>
+#include<WinSock2.h>
+#pragma comment(lib,"ws2_32.lib")
+
+int main() {
+
+WSADATA wsaData;
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
+
+
+	//创建socket套接字
+	SOCKET client_socket = socket(AF_INET, SOCK_STREAM, 0);
+	if (INVALID_SOCKET == client_socket) {
+		printf("creat socket failed ! \n");
+		return -1;
+	}
+
+	//连接服务器
+	struct sockaddr_in target;
+	target.sin_family = AF_INET;
+	target.sin_port = htons(8080);
+	target.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+	if (-1 == connect(client_socket, (struct sockaddr*)&target, sizeof(target))) {
+		printf("connect server failed ! \n");
+		closesocket(client_socket);
+		return -1;
+	}
+
+	//开始通讯
+	while (1) {
+		char sbuffer[1024] = { 0 };
+		scanf("%s", sbuffer);
+
+		send(client_socket, sbuffer, strlen(sbuffer), 0);
+		char rebuffer[1024] = { 0 };
+		int ret = recv(client_socket, rebuffer, 1024, 0);
+
+		if (ret <= 0) break;
+		printf("%s\n", rebuffer);
+
+	}
+		//关闭连接
+		closesocket(client_socket);
+	
+
+	return 0;
+}
+```
+
+- 以下为服务器代码
+
+```c
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#include<stdio.h>
+#include<string.h>
+#include<winsock2.h>
+#pragma comment(lib,"ws2_32.lib")
+
+int main() {
+
+    //Windows上使用网络功能,开始网络权限
+    WSADATA wsaData;
+    WSAStartup(MAKEWORD(2, 2), &wsaData);
+
+    //创建socket套接字
+    SOCKET listen_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (INVALID_SOCKET == listen_socket) {
+        printf("create listen socket failed ! errcode: %d\n",WSAGetLastError());
+        return -1;
+    }
+
+    //给socket绑定端口号
+    struct sockaddr_in local = { 0 };
+    local.sin_family = AF_INET;
+    local.sin_port = htons(8080); 
+    local.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    if (-1 == bind(listen_socket, (struct sockaddr*)&local, sizeof(local))) {
+        printf("bind socket failed ! errcode: %d\n", WSAGetLastError());
+        return -1;
+    }
+
+    //给socket开启监听属性
+    if (-1 == listen(listen_socket, 10)) {
+        printf("start listen failed ! errcode: %d\n", WSAGetLastError());
+        return -1;
+    }
+
+    //等待客户端连接
+    while (1)
+    {
+        SOCKET client_socket = accept(listen_socket, NULL, NULL);
+        if (INVALID_SOCKET == client_socket)
+            continue;
+
+        //开始通讯(B/S)
+        while (1) {
+
+    char buffer[1024] = { 0 };
+    int ret = recv(client_socket, buffer, 1024, 0);
+    if (ret <= 0) break;
+
+    printf("%s\n", buffer);
+
+    send(client_socket, buffer, strlen(buffer), 0);
+}
+return 0;
+}
+```
+
+- 经过分析,只能实现单线程的原因是服务器代码 **//开始通讯** 部分的while循环 -- 要实现既跟socket建立通讯,又不能断开连接,所以需要使用一个while循环进行维护.直到客户端主动退出,有break退出循环.
+- 得出的解决方案是,在连接一旦完成之后进入线程.找到一个函数CreateTreade.
+- 核对某示例源代码后,修改的服务器已经可以实现同时接受多个客户端的通信.在最后的时间里,对项目的理解依然不深且项目本身较为粗糙.
+
+![alt text](<屏幕截图 2026-10-20 213403.png>)
+
+- 最终版的整个文件储存在code文件夹内,使用Visual Studio进行编写.
+
+>下面还是粘贴一遍最终的代码:
+
+- 服务器:
+
+```c
+#define _WINSOCK_DEPRECATED_NO_WARNINGS
+#define _CRT_SECURE_NO_WARNINGS
+#include<stdio.h>
+#include<string.h>
+#include<winsock2.h>
+#pragma comment(lib,"ws2_32.lib")
+
+DWORD WINAPI thread_func(LPVOID lpThreadParameter) {
+    SOCKET client_socket = *(SOCKET*)lpThreadParameter;
+    free(lpThreadParameter);
+
+    while (1) {
+
+        char buffer[1024] = { 0 };
+        int ret = recv(client_socket, buffer, 1024, 0);
+        if (ret <= 0) break;
+
+        printf("%s\n", buffer);
+
+        send(client_socket, buffer, (int)strlen(buffer), 0);
+        
+    }
+    return 0;
+}
+
+int main() {
+
+    //Windows上使用网络功能,开始网络权限
+    WSADATA wsaData;
+    WSAStartup(MAKEWORD(2, 2), &wsaData);
+
+    //创建socket套接字
+    SOCKET listen_socket = socket(AF_INET, SOCK_STREAM, 0);
+    if (INVALID_SOCKET == listen_socket) {
+        printf("create listen socket failed ! errcode: %d\n",WSAGetLastError());
+        return -1;
+    }
+
+    //给socket绑定端口号
+    struct sockaddr_in local = { 0 };
+    local.sin_family = AF_INET;
+    local.sin_port = htons(8080); 
+    local.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+    if (-1 == bind(listen_socket, (struct sockaddr*)&local, sizeof(local))) {
+        printf("bind socket failed ! errcode: %d\n", WSAGetLastError());
+        return -1;
+    }
+
+    //给socket开启监听属性
+    if (-1 == listen(listen_socket, 10)) {
+        printf("start listen failed ! errcode: %d\n", WSAGetLastError());
+        return -1;
+    }
+
+    //等待客户端连接
+    while (1)
+    {
+        SOCKET client_socket = accept(listen_socket, NULL, NULL);
+        if (INVALID_SOCKET == client_socket)
+            continue;
+
+        SOCKET* sockfd = (SOCKET*)malloc(sizeof(SOCKET));
+        *sockfd = client_socket;
+
+        //进入线程
+        CreateThread(NULL, 0, thread_func, sockfd, 0, NULL);
+        //开始通讯
+    }
+    return 0;
+}
+```
+
+- 客户端:
+
+```c
+#include<stdio.h>
+#include<WinSock2.h>
+#pragma comment(lib,"ws2_32.lib")
+
+int main() {
+
+	WSADATA wsaData;
+	WSAStartup(MAKEWORD(2, 2), &wsaData);
+
+
+	//创建socket套接字
+	SOCKET client_socket = socket(AF_INET, SOCK_STREAM, 0);
+	if (INVALID_SOCKET == client_socket) {
+		printf("creat socket failed ! \n");
+		return -1;
+	}
+
+	//连接服务器
+	struct sockaddr_in target;
+	target.sin_family = AF_INET;
+	target.sin_port = htons(8080);
+	target.sin_addr.s_addr = inet_addr("127.0.0.1");
+
+	if (-1 == connect(client_socket, (struct sockaddr*)&target, sizeof(target))) {
+		printf("connect server failed ! \n");
+		closesocket(client_socket);
+		return -1;
+	}
+
+	//开始通讯
+	while (1) {
+		char sbuffer[1024] = { 0 };
+		scanf("%s", sbuffer);
+
+		send(client_socket, sbuffer, strlen(sbuffer), 0);
+		char rebuffer[1024] = { 0 };
+		int ret = recv(client_socket, rebuffer, 1024, 0);
+
+		if (ret <= 0) break;
+		printf("%s\n", rebuffer);
+
+	}
+		//关闭连接
+		closesocket(client_socket);
+	
+
+	return 0;
+}
+```
