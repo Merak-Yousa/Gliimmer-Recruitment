@@ -123,6 +123,19 @@
 
 ![alt text](<屏幕截图 2026-10-19 201706.png>)
 
+- 实验:Nginx
+  - 实验环境:Ubuntu虚拟机
+
+![alt text](<屏幕截图 2026-10-20 175938.png>)
+
+![alt text](<屏幕截图 2026-10-20 180002.png>)
+
+![alt text](<屏幕截图 2026-10-20 180036.png>)
+
+手机浏览器进行访问测试:
+
+![alt text](screenshot_20261020_180151_com.huawei.hmos.brows.jpg)
+
 ### part 6
 
 (1).为什么重庆服延迟高于天津服:
